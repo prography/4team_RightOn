@@ -1,8 +1,8 @@
-# 4team_RightOn
+# 4team_LightOn
 
 프로그라피 10기_4팀
 
-RightOn 프로젝트 
+LightOn 프로젝트 
 
 
 #소스코드 버전 관리
