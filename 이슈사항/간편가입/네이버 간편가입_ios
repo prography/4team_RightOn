@@ -1,0 +1,61 @@
+// 1. 네이버 로그인 SDK 초기화
+// - SDK 설정할 때, **custom redirect URI**를 등록
+
+let naverLoginInstance = NaverThirdPartyLoginConnection.getSharedInstance()
+naverLoginInstance?.serviceUrlScheme = "myapp" // 앱 스킴 설정
+naverLoginInstance?.consumerKey = "네이버 Client ID"
+naverLoginInstance?.consumerSecret = "네이버 Client Secret"
+naverLoginInstance?.appName = "앱 이름"
+
+// - `serviceUrlScheme`를 설정하면, 네이버 인증 후 `myapp://auth?code=xxx` 이런 식으로 콜백
+// 이 리다이렉트를 앱이 가로채기
+
+// 2. AppDelegate에서 URL 열림 처리
+// `SceneDelegate`나 `AppDelegate`의 `open url` 메서드에서 이 리다이렉트를 받기
+
+func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+    
+    // 네이버 로그인 SDK가 리다이렉트 처리할 수 있게 먼저 넘겨줌
+    if NaverThirdPartyLoginConnection.getSharedInstance()?.application(app, open: url, options: options) == true {
+        // 여기서 Authorization Code 뽑을 수 있음
+        if let code = extractAuthorizationCode(from: url) {
+            print("Authorization Code:", code)
+            
+            // 🔥 여기서 code를 백엔드 서버로 POST 호출해서 전달
+            sendAuthorizationCodeToBackend(code: code)
+        }
+        return true
+    }
+    return false
+}
+
+// 3. Authorization Code 추출하는 함수
+// 리다이렉트 URL을 분석해서 code를 꺼내는 함수
+
+func extractAuthorizationCode(from url: URL) -> String? {
+    let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+    return components?.queryItems?.first(where: { $0.name == "code" })?.value
+}
+
+// 4. 서버로 code 보내기
+// code를 추출한 다음, 간단하게 서버로 POST 요청
+
+func sendAuthorizationCodeToBackend(code: String) {
+    guard let url = URL(string: "https://your.backend.server/auth/naver") else { return }
+    
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    
+    let body: [String: Any] = ["authorization_code": code]
+    
+    request.httpBody = try? JSONSerialization.data(withJSONObject: body, options: [])
+    
+    URLSession.shared.dataTask(with: request) { data, response, error in
+        if let error = error {
+            print("Error sending code to backend:", error)
+            return
+        }
+        print("Successfully sent code to backend!")
+    }.resume()
+}
